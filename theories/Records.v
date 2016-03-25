@@ -78,6 +78,9 @@ Local Open Scope positive.
   | pmm_H : forall L R, member val (pm_Branch L (Some val) R)
   | pmm_L : forall V L R, member val L -> member val (pm_Branch L V R)
   | pmm_R : forall V L R, member val R -> member val (pm_Branch L V R).
+  Arguments pmm_H {_ _ _}.
+  Arguments pmm_L {_ _ _ _} _.
+  Arguments pmm_R {_ _ _ _} _.
 
   Fixpoint get_member val p {struct p}
   : forall m, fields_get p m = Some val -> member val m :=
@@ -102,7 +105,7 @@ Local Open Scope positive.
                     end
                   | pm_Branch _ (Some x) _ => fun pf : Some x = Some val =>
                                                 match eq_sym pf in _ = Z return member val (pm_Branch _ Z _) with
-                                                  | eq_refl => pmm_H _ _ _
+                                                  | eq_refl => pmm_H
                                                 end
                 end
       | xO p' => fun m =>
@@ -138,14 +141,15 @@ Local Open Scope positive.
                                   | _ => unit
                                 end
     with
-      | pr_Branch _ _ _ l _ _ => l
+      | pr_Branch _ l _ _ => l
       | pr_Leaf => tt
     end.
 
-  Definition record_at {L V R} (r : record (pm_Branch L V R)) : match V with
-                                                                    | None => unit
-                                                                    | Some t => t
-                                                                  end :=
+  Definition record_at {L V R} (r : record (pm_Branch L V R))
+  : match V with
+    | None => unit
+    | Some t => t
+    end :=
     match r in record z return match z with
                                   | pm_Branch _ V _ => match V with
                                                          | None => unit
@@ -154,7 +158,7 @@ Local Open Scope positive.
                                   | _ => unit
                                 end
     with
-      | pr_Branch _ _ _ _ v _ => v
+      | pr_Branch _ _ v _ => v
       | pr_Leaf => tt
     end.
 
@@ -164,7 +168,7 @@ Local Open Scope positive.
                                   | _ => unit
                                 end
     with
-      | pr_Branch _ _ _ _ v _ => v
+      | pr_Branch _ _ v _ => v
       | pr_Leaf => tt
     end.
 
@@ -175,79 +179,90 @@ Local Open Scope positive.
                                   | _ => unit
                                 end
     with
-      | pr_Branch _ _ _ _ _ r => r
+      | pr_Branch _ _ _ r => r
       | pr_Leaf => tt
     end.
 
   Fixpoint record_get {val} {pm : fields} (m : member val pm) : record pm -> val :=
     match m in member _ pm return record pm -> val with
-      | pmm_H _ _ => fun r => record_here r
-      | pmm_L _ _ _ m' => fun r => record_get m' (record_left r)
-      | pmm_R _ _ _ m' => fun r => record_get m' (record_right r)
+      | pmm_H => fun r => record_here r
+      | pmm_L m' => fun r => record_get m' (record_left r)
+      | pmm_R m' => fun r => record_get m' (record_right r)
     end.
 
   Fixpoint record_set {val} {pm : fields} (m : member val pm) (x : val) {struct m}
   : record pm -> record pm :=
     match m in member _ pm return record pm -> record pm with
-      | pmm_H _ _ => fun r =>
-        @pr_Branch _ _ (Some _) (record_left r) x (record_right r)
-      | pmm_L _ _ _ m' => fun r =>
-        @pr_Branch _ _ _ (record_set m' x (record_left r)) (record_at r) (record_right r)
-      | pmm_R _ _ _ m' => fun r =>
-        @pr_Branch _ _ _ (record_left r) (record_at r) (record_set m' x (record_right r))
+    | pmm_H => fun r =>
+      pr_Branch (Some _)
+                (record_left r)
+                x
+                (record_right r)
+    | pmm_L m' => fun r =>
+      pr_Branch _
+                (record_set m' x (record_left r))
+                (record_at r)
+                (record_right r)
+    | pmm_R m' => fun r =>
+      pr_Branch _ (record_left r)
+                (record_at r)
+                (record_set m' x (record_right r))
     end.
 
   Definition record_empty : record pm_Leaf := pr_Leaf.
-  Fixpoint record_singleton {T} (p : field) (val : T) {struct p} : record (fields_singleton p T) :=
+  Fixpoint record_singleton {T} (p : field) (val : T) {struct p}
+  : record (fields_singleton p T) :=
     match p as p return record (fields_singleton p T) with
-      | xH => @pr_Branch _ _ (Some T) pr_Leaf val pr_Leaf
-      | xI p' =>
-        pr_Branch
-          match fields_leaf with
-            | pm_Leaf => None
-            | pm_Branch _ v _ => v
-          end pr_Leaf tt (record_singleton p' val)
-      | xO p0 =>
-        pr_Branch
-          match fields_leaf with
-            | pm_Leaf => None
-            | pm_Branch _ v _ => v
-          end (record_singleton p0 val) tt pr_Leaf
+    | xH => pr_Branch (Some T) pr_Leaf val pr_Leaf
+    | xI p' =>
+      pr_Branch
+        match fields_leaf with
+        | pm_Leaf => None
+        | pm_Branch _ v _ => v
+        end pr_Leaf tt (record_singleton p' val)
+    | xO p0 =>
+      pr_Branch
+        match fields_leaf with
+        | pm_Leaf => None
+        | pm_Branch _ v _ => v
+        end (record_singleton p0 val) tt pr_Leaf
     end.
 
   Fixpoint disjoint (a b : fields) : bool :=
     match a , b with
-      | pm_Leaf , _ => true
-      | _ , pm_Leaf => true
-      | pm_Branch aL None aR , pm_Branch bL _ bR => disjoint aL bL && disjoint aR bR
-      | pm_Branch aL _ aR , pm_Branch bL None bR => disjoint aL bL && disjoint aR bR
-      | pm_Branch _ (Some _) _ , pm_Branch _ (Some _) _ => false
+    | pm_Leaf , _ => true
+    | _ , pm_Leaf => true
+    | pm_Branch aL None aR , pm_Branch bL _ bR =>
+      disjoint aL bL && disjoint aR bR
+    | pm_Branch aL _ aR , pm_Branch bL None bR =>
+      disjoint aL bL && disjoint aR bR
+    | pm_Branch _ (Some _) _ , pm_Branch _ (Some _) _ => false
     end%bool.
 
   Fixpoint fields_join (a b : fields) : fields :=
     match a with
-      | pm_Leaf => b
-      | pm_Branch aL aV aR =>
-        match b with
-          | pm_Leaf => a
-          | pm_Branch bL bV bR =>
-            pm_Branch (fields_join aL bL)
-                      match aV with
-                        | None => bV
-                        | Some X => aV
-                      end
-                      (fields_join aR bR)
-        end
+    | pm_Leaf => b
+    | pm_Branch aL aV aR =>
+      match b with
+      | pm_Leaf => a
+      | pm_Branch bL bV bR =>
+        pm_Branch (fields_join aL bL)
+                  match aV with
+                  | None => bV
+                  | Some X => aV
+                  end
+                  (fields_join aR bR)
+      end
     end.
 
   Fixpoint Rjoin {l r : fields} (L : record l) {struct L}
   : record r -> record (fields_join l r) :=
     match L in record l return record r -> record (fields_join l r) with
       | pr_Leaf => fun v => v
-      | pr_Branch l' r' v lL lV lR => fun R =>
+      | @pr_Branch l' r' v lL lV lR => fun R =>
         match R in record r return record (fields_join (pm_Branch l' v r') r) with
           | pr_Leaf => @pr_Branch l' r' v lL lV lR
-          | pr_Branch rl' rr' rv rL rV rR =>
+          | @pr_Branch rl' rr' rv rL rV rR =>
             let val' :=
                 match v as o return match o with
                                       | Some t => t
@@ -300,7 +315,7 @@ Coercion string_to_p : string >-> field.
 
 Fixpoint Fields (ls : FieldSpec) : fields :=
   match ls with
-    | FSnil => pm_Leaf
-    | FScons (f, t) ls =>
-      fields_insert f t (Fields ls)
+  | FSnil => pm_Leaf
+  | FScons (f, t) ls =>
+    fields_insert f t (Fields ls)
   end.
