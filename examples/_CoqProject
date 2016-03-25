@@ -1,4 +1,3 @@
--R ../theories/ Records
--R .
-Records.v
-Notation.v
+-Q ../theories/ Records
+
+Demo.v

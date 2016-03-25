@@ -1,5 +1,3 @@
-PROJECT_NAME=coq-ext-refine
-
 all: theories examples
 
 theories:
