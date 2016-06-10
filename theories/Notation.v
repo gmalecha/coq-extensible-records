@@ -30,7 +30,8 @@ Notation "{# r 'with' a ; .. ; b #}" :=
 Notation "{#  x ; .. ; y  #}" :=
   (@Rjoin _ _ x%record_field_assign .. (@Rjoin _ _ y%record_field_assign record_empty) ..).
 
-Definition Rget {fs : fields} (r : record fs) (f : field) {T} (pf : fields_get f fs = Some T) : T :=
+Definition Rget {fs : fields} (r : record fs) (f : field) {T}
+           (pf : fields_get f fs = Some T) : T :=
   record_get (get_member _ fs pf) r.
 
 Notation "r !! f" :=

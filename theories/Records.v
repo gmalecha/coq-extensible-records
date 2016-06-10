@@ -86,42 +86,42 @@ Local Open Scope positive.
   : forall m, fields_get p m = Some val -> member val m :=
     match p as p return forall m, fields_get p m = Some val -> member val m with
       | xH => fun m =>
-                match m as m return fields_get xH m = Some val -> member val m with
-                  | pm_Leaf => fun pf : None = Some _ =>
-                    match pf in _ = Z return match Z with
-                                               | Some _ => _
-                                               | None => unit
-                                             end
-                    with
-                      | eq_refl => tt
-                    end
-                  | pm_Branch _ None _ => fun pf : None = Some _ =>
-                    match pf in _ = Z return match Z with
-                                               | Some _ => _
-                                               | None => unit
-                                             end
-                    with
-                      | eq_refl => tt
-                    end
-                  | pm_Branch _ (Some x) _ => fun pf : Some x = Some val =>
-                                                match eq_sym pf in _ = Z return member val (pm_Branch _ Z _) with
-                                                  | eq_refl => pmm_H
+        match m as m return fields_get xH m = Some val -> member val m with
+        | pm_Leaf => fun pf : None = Some _ =>
+                       match pf in _ = Z return match Z with
+                                                | Some _ => _
+                                                | None => unit
                                                 end
-                end
+                       with
+                       | eq_refl => tt
+                       end
+        | pm_Branch _ None _ => fun pf : None = Some _ =>
+                                  match pf in _ = Z return match Z with
+                                                           | Some _ => _
+                                                           | None => unit
+                                                           end
+                                  with
+                                  | eq_refl => tt
+                                  end
+        | pm_Branch _ (Some x) _ => fun pf : Some x = Some val =>
+                                      match eq_sym pf in _ = Z return member val (pm_Branch _ Z _) with
+                                      | eq_refl => pmm_H
+                                      end
+        end
       | xO p' => fun m =>
-                   match m as m return fields_get (xO p') m = Some val -> member val m with
-                     | pm_Leaf => fun pf : fields_get p' pm_Leaf = Some val =>
+        match m as m return fields_get (xO p') m = Some val -> member val m with
+        | pm_Leaf => fun pf : fields_get p' pm_Leaf = Some val =>
                        @get_member _ p' pm_Leaf pf
-                     | pm_Branch l _ _ => fun pf : fields_get p' l = Some val =>
+        | pm_Branch l _ _ => fun pf : fields_get p' l = Some val =>
                        @pmm_L _ _ _ _ (@get_member _ p' l pf)
-                   end
+        end
       | xI p' => fun m =>
-                   match m as m return fields_get (xI p') m = Some val -> member val m with
-                     | pm_Leaf => fun pf : fields_get p' pm_Leaf = Some val =>
+        match m as m return fields_get (xI p') m = Some val -> member val m with
+        | pm_Leaf => fun pf : fields_get p' pm_Leaf = Some val =>
                        @get_member _ p' pm_Leaf pf
-                     | pm_Branch l _ r => fun pf : fields_get p' r = Some val =>
-                       @pmm_R _ _ _ _ (@get_member _ p' r pf)
-                   end
+        | pm_Branch l _ r => fun pf : fields_get p' r = Some val =>
+                               @pmm_R _ _ _ _ (@get_member _ p' r pf)
+        end
     end.
 
   Inductive record : fields -> Type :=

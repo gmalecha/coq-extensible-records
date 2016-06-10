@@ -1,26 +1,19 @@
 all: theories examples
 
-theories:
-	$(MAKE) -C theories
+theories: Makefile.coq
+	$(MAKE) -f Makefile.coq
 
-install:
-	$(MAKE) -C theories install
+install: Makefile.coq
+	$(MAKE) -f Makefile.coq install
 
-examples: theories
-	$(MAKE) -C examples
+clean: Makefile.coq
+	$(MAKE) -f Makefile.coq clean
 
-clean:
-	$(MAKE) -C theories clean
-	$(MAKE) -C examples clean
+uninstall: Makefile.coq
+	$(MAKE) -f Makefileq.coq uninstall
 
-uninstall:
-	$(MAKE) -C theories uninstall
+Makefile.coq: _CoqProject
+	coq_makefile -f _CoqProject -o Makefile.coq
 
-
-dist:
-	@ git archive --prefix coq-ext-lib/ HEAD -o $(PROJECT_NAME).tgz
-
-.dir-locals.el: tools/dir-locals.el
-	@ sed s,PWD,$(shell pwd -P),g tools/dir-locals.el > .dir-locals.el
 
 .PHONY: all clean dist theories examples
