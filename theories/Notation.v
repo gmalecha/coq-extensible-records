@@ -1,7 +1,7 @@
 Require Import Coq.Strings.String.
 Require Import Coq.Strings.Ascii.
 Require Import Coq.Numbers.BinNums.
-Require Import Records.Records.
+Require Import Records.CoreRecords.
 
 Set Implicit Arguments.
 Set Strict Implicit.
@@ -15,6 +15,8 @@ Bind Scope field_scope with field.
 Notation "x '%e' y" :=
   (@pair field Type x%string y%type) (at level 0) : field_decl_scope.
 
+Notation "{@ @}" := (record (Fields FSnil)) : type_scope.
+
 Notation "{@ x , .. , y @}" :=
   (record (Fields (FScons x%field_decl .. (FScons y%field_decl FSnil) .. ))) : type_scope.
 
@@ -27,6 +29,7 @@ Notation "x ':-' y" :=
 Notation "{# r 'with' a ; .. ; b #}" :=
   (@Rjoin _ _ a%record_field_assign .. (@Rjoin _ _ b%record_field_assign r) ..) : record_scope.
 
+Notation "{# #}" := record_empty.
 Notation "{#  x ; .. ; y  #}" :=
   (@Rjoin _ _ x%record_field_assign .. (@Rjoin _ _ y%record_field_assign record_empty) ..).
 

@@ -1,4 +1,5 @@
 -Q theories Records
 
-theories/Records.v
+theories/CoreRecords.v
 theories/Notation.v
+theories/Records.v

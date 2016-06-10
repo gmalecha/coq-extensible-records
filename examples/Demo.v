@@ -1,6 +1,7 @@
 Require Import Coq.Strings.String.
 Require Import Records.Records.
-Require Import Records.Notation.
+
+Definition foo_empty : {@ @} := {# #}.
 
 Definition foo : {@ ("x" %e nat) @} :=
   {# "x" :- 3 #}%record.
@@ -13,6 +14,9 @@ Definition bar :=
 
 Definition bar' :=
   {# bar with "x" :- 4 #}%record.
+
+Definition bar'' :=
+  {# bar with "x" :- 4 ; "y" :- false #}%record.
 
 Goal (bar' !! "x"%string) = 4.
 Proof.
