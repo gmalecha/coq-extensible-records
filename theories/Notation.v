@@ -13,7 +13,7 @@ Delimit Scope field_scope with field.
 Bind Scope field_scope with field.
 
 Notation "x '%e' y" :=
-  (@pair field Type x%string y%type) (at level 0) : field_decl_scope.
+  (@pair field _ x%string y%type) (at level 0) : field_decl_scope.
 
 Notation "{@ @}" := (record (Fields FSnil)) : type_scope.
 
@@ -33,7 +33,7 @@ Notation "{# #}" := record_empty.
 Notation "{#  x ; .. ; y  #}" :=
   (@Rjoin _ _ x%record_field_assign .. (@Rjoin _ _ y%record_field_assign record_empty) ..).
 
-Definition Rget {fs : fields} (r : record fs) (f : field) {T}
+Polymorphic Definition Rget {fs : fields} (r : record fs) (f : field) {T}
            (pf : fields_get f fs = Some T) : T :=
   record_get (get_member _ fs pf) r.
 

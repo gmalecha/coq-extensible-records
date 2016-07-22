@@ -17,6 +17,7 @@ Definition bar' :=
 
 Definition bar'' :=
   {# bar with "x" :- 4 ; "y" :- false #}%record.
+Set Printing Universes.
 
 Goal (bar' !! "x"%string) = 4.
 Proof.
@@ -27,3 +28,7 @@ Goal {# "x" :- 3 ; "y" :- true #} = {# "y" :- true ; "x" :- 3 #}.
 Proof.
   reflexivity.
 Defined.
+
+(* Records in Records *)
+Definition nested : {@ ("x" %e {@ "y" %e nat @}) @} :=
+  {# "x" :- {# "y" :- 3 #} #}.

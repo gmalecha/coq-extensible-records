@@ -4,18 +4,20 @@ Require Import Coq.Numbers.BinNums.
 
 Set Implicit Arguments.
 Set Strict Implicit.
+Set Universe Polymorphism.
 
 Local Open Scope positive.
 
-  Let T := Type.
+Monomorphic Definition field : Type := positive.
 
-  Definition field : Type := positive.
+Section poly.
+  Universe U.
 
   Inductive fields : Type :=
   | pm_Leaf : fields
-  | pm_Branch : fields -> option T -> fields -> fields.
+  | pm_Branch : fields -> option Type@{U} -> fields -> fields.
 
-  Fixpoint fields_insert (p : field) (t : T) (m : fields) {struct p} : fields :=
+  Fixpoint fields_insert (p : field) (t : Type@{U}) (m : fields) {struct p} : fields :=
     match p with
       | xH => pm_Branch match m with
                           | pm_Leaf => pm_Leaf
@@ -28,9 +30,9 @@ Local Open Scope positive.
                         end
       | xO p' =>
         pm_Branch (fields_insert p' t match m with
-                                 | pm_Leaf => pm_Leaf
-                                 | pm_Branch l _ _ => l
-                               end)
+                                      | pm_Leaf => pm_Leaf
+                                      | pm_Branch l _ _ => l
+                                      end)
                   match m with
                     | pm_Leaf => None
                     | pm_Branch _ v _ => v
@@ -54,7 +56,7 @@ Local Open Scope positive.
                                end)
     end.
 
-  Fixpoint fields_get (p : field) (m : fields) {struct p} : option T :=
+  Fixpoint fields_get (p : field) (m : fields) {struct p} : option Type@{U} :=
     match p with
       | xH => match m with
                 | pm_Leaf => None
@@ -74,7 +76,7 @@ Local Open Scope positive.
   Definition fields_singleton (p : field) (t : Type) : fields :=
     fields_insert p t fields_leaf.
 
-  Inductive member (val : T) : fields -> Type :=
+  Inductive member (val : Type@{U}) : fields -> Type :=
   | pmm_H : forall L R, member val (pm_Branch L (Some val) R)
   | pmm_L : forall V L R, member val L -> member val (pm_Branch L V R)
   | pmm_R : forall V L R, member val R -> member val (pm_Branch L V R).
@@ -126,47 +128,51 @@ Local Open Scope positive.
 
   Inductive record : fields -> Type :=
   | pr_Leaf : record pm_Leaf
-  | pr_Branch : forall L R V,
+  | pr_Branch : forall L R (V : option Type@{U}),
       record L ->
-      match V return T with
+      match V return Type@{U} with
         | None => unit
         | Some t => t
       end ->
       record R ->
       record (pm_Branch L V R).
 
-  Definition record_left {L V R} (r : record (pm_Branch L V R)) : record L :=
-    match r in record z return match z with
-                                  | pm_Branch L _ _ => record L
-                                  | _ => unit
-                                end
+  Definition record_left {L} {V : option Type@{U}} {R}
+             (r : record (pm_Branch L V R)) : record L :=
+    match r in record z
+          return match z with
+                 | pm_Branch L _ _ => record L
+                 | _ => unit
+                 end
     with
       | pr_Branch _ l _ _ => l
       | pr_Leaf => tt
     end.
 
-  Definition record_at {L V R} (r : record (pm_Branch L V R))
+  Definition record_at {L} {V : option Type@{U}} {R} (r : record (pm_Branch L V R))
   : match V with
     | None => unit
     | Some t => t
     end :=
-    match r in record z return match z with
-                                  | pm_Branch _ V _ => match V with
-                                                         | None => unit
-                                                         | Some t => t
-                                                       end
-                                  | _ => unit
-                                end
+    match r in record z
+          return match z with
+                 | pm_Branch _ V _ => match V return Type@{U} with
+                                     | None => unit
+                                     | Some t => t
+                                     end
+                 | _ => unit
+                 end
     with
       | pr_Branch _ _ v _ => v
       | pr_Leaf => tt
     end.
 
   Definition record_here {L v R} (r : record (pm_Branch L (Some v) R)) : v :=
-    match r in record z return match z with
-                                  | pm_Branch _ (Some v) _ => v
-                                  | _ => unit
-                                end
+    match r in record z
+          return match z return Type@{U} with
+                 | pm_Branch _ (Some v) _ => v
+                 | _ => unit
+                 end
     with
       | pr_Branch _ _ v _ => v
       | pr_Leaf => tt
@@ -319,3 +325,5 @@ Fixpoint Fields (ls : FieldSpec) : fields :=
   | FScons (f, t) ls =>
     fields_insert f t (Fields ls)
   end.
+
+End poly.
