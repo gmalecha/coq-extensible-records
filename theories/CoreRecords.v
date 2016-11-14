@@ -146,7 +146,6 @@ Section poly.
     end.
 
 
-(*
   Inductive record (f : fields) : Type@{U} :=
   | pr_Leaf : f = pm_Leaf -> record f
   | pr_Branch : (* forall L R (V : option Type@{U}), *)
@@ -161,8 +160,8 @@ Section poly.
       end ->
       record (fields_right f) ->
       record f.
-*)
 
+(*
   Inductive record : fields -> Type :=
   | pr_Leaf : record pm_Leaf
   | pr_Branch : forall L R (V : option Type@{U}),
@@ -173,18 +172,20 @@ Section poly.
       end ->
       record R ->
       record (pm_Branch L V R).
-
+*)
 
   Definition record_left {L} {V : option Type@{U}} {R}
              (r : record (pm_Branch L V R)) : record L :=
-    match r in record z
-          return match z with
-                 | pm_Branch L _ _ => record L
-                 | _ => unit
-                 end
-    with
-      | pr_Branch _ l _ _ => l
-      | pr_Leaf => tt
+    match r with
+    | pr_Branch _ l _ _ => l
+    | pr_Leaf z =>
+      match z in _ = Z return match Z with
+                              | pm_Leaf => _
+                              | pm_Branch _ _ _ => unit
+                              end
+      with
+      | eq_refl => tt
+      end
     end.
 
   Definition record_at {L} {V : option Type@{U}} {R} (r : record (pm_Branch L V R))
@@ -192,39 +193,28 @@ Section poly.
     | None => unit
     | Some t => t
     end :=
-    match r in record z
-          return match z with
-                 | pm_Branch _ V _ => match V return Type@{U} with
-                                     | None => unit
-                                     | Some t => t
-                                     end
-                 | _ => unit
-                 end
-    with
-      | pr_Branch _ _ v _ => v
-      | pr_Leaf => tt
+    match r with
+    | pr_Branch _ _ v _ => v
+    | pr_Leaf pf => match pf with
+                   | eq_refl => idProp
+                   end
     end.
 
   Definition record_here {L : fields} (v : Type@{U}) {R : fields}
              (r : record (pm_Branch L (@Some Type@{U} v) R)) : v :=
-    match r in record z
-          return match z return Type@{U} with
-                 | pm_Branch _ (Some v) _ => v
-                 | _ => unit
-                 end
-    with
-      | pr_Branch _ _ v _ => v
-      | pr_Leaf => tt
+    match r with
+    | pr_Branch _ _ v _ => v
+    | pr_Leaf pf => match pf with
+                   | eq_refl => idProp
+                   end
     end.
 
   Definition record_right {L V R} (r : record (pm_Branch L V R)) : record R :=
-    match r in record z return match z with
-                                  | pm_Branch _ _ R => record R
-                                  | _ => unit
-                                end
-    with
-      | pr_Branch _ _ _ r => r
-      | pr_Leaf => tt
+    match r with
+    | pr_Branch _ _ _ r => r
+    | pr_Leaf pf => match pf with
+                   | eq_refl => idProp
+                   end
     end.
 
   Fixpoint record_get {val : Type@{U}} {pm : fields} (m : member val pm) : record pm -> val :=
@@ -234,42 +224,41 @@ Section poly.
       | pmm_R m' => fun r => record_get m' (record_right r)
     end.
 
+  Print pr_Branch.
+  Print fields.
+
   Fixpoint record_set {val : Type@{U}} {pm : fields} (m : member val pm) (x : val) {struct m}
   : record pm -> record pm :=
     match m in member _ pm return record pm -> record pm with
-    | pmm_H => fun r =>
-      pr_Branch (Some _)
+    | @pmm_H _ L R => fun r =>
+      pr_Branch (pm_Branch L (Some val) R)
                 (record_left r)
                 x
                 (record_right r)
-    | pmm_L m' => fun r =>
-      pr_Branch _
+    | @pmm_L _ v L R m' => fun r =>
+      pr_Branch (pm_Branch L v R)
                 (record_set m' x (record_left r))
                 (record_at r)
                 (record_right r)
-    | pmm_R m' => fun r =>
-      pr_Branch _ (record_left r)
+    | @pmm_R _ v L R m' => fun r =>
+      pr_Branch (pm_Branch L v R)
+                (record_left r)
                 (record_at r)
                 (record_set m' x (record_right r))
     end.
 
-  Definition record_empty : record pm_Leaf := pr_Leaf.
+  Print pr_Branch.
+
+  Definition record_empty : record pm_Leaf := pr_Leaf eq_refl.
   Fixpoint record_singleton {T : Type@{U}} (p : field) (val : T) {struct p}
   : record (fields_singleton p T) :=
     match p as p return record (fields_singleton p T) with
-    | xH => pr_Branch (@Some Type@{U} T) pr_Leaf val pr_Leaf
+    | xH => pr_Branch (pm_Branch pm_Leaf (@Some Type@{U} T) pm_Leaf)
+                     (pr_Leaf eq_refl) val (pr_Leaf eq_refl)
     | xI p' =>
-      pr_Branch
-        match fields_leaf with
-        | pm_Leaf => None
-        | pm_Branch _ v _ => v
-        end pr_Leaf tt (record_singleton p' val)
+      pr_Branch (pm_Branch pm_Leaf None _) (pr_Leaf eq_refl) tt (record_singleton p' val)
     | xO p0 =>
-      pr_Branch
-        match fields_leaf with
-        | pm_Leaf => None
-        | pm_Branch _ v _ => v
-        end (record_singleton p0 val) tt pr_Leaf
+      pr_Branch (pm_Branch _ None pm_Leaf) (record_singleton p0 val) tt (pr_Leaf eq_refl)
     end.
 
   Fixpoint disjoint (a b : fields) : bool :=
@@ -300,68 +289,89 @@ Section poly.
     end.
 
   Fixpoint Rjoin {l r : fields} (L : record l) {struct L}
-  : record r -> record (fields_join l r) :=
-    match L in record l return record r -> record (fields_join l r) with
-      | pr_Leaf => fun v => v
-      | @pr_Branch l' r' v lL lV lR => fun R =>
-        match R in record r return record (fields_join (pm_Branch l' v r') r) with
-          | pr_Leaf => @pr_Branch l' r' v lL lV lR
-          | @pr_Branch rl' rr' rv rL rV rR =>
-            let val' :=
-                match v as o return match o return Type@{U} with
-                                      | Some t => t
-                                      | None => unit
-                                    end ->
-                                    match match o return option Type@{U} with
-                                            | Some _ => o
-                                            | None => rv
-                                          end return Type@{U} with
-                                      | Some t => t
-                                      | None => unit
-                                    end
-                with
-                  | Some t => fun lV0 : t => lV0
-                  | None => fun _ : unit => rV
-                end lV
-            in
-            @pr_Branch (fields_join l' rl') (fields_join r' rr') _
-                       (Rjoin lL rL) val' (Rjoin lR rR)
+  : record r -> record (fields_join l r).
+  refine
+    match L with
+      | pr_Leaf pf => fun v =>
+        match eq_sym pf in _ = Z return record (fields_join Z r) with
+        | eq_refl => v
+        end
+      | @pr_Branch _ lL lV lR => fun R =>
+        match R with
+          | pr_Leaf pf =>
+            match eq_sym pf in _ = Z return record (fields_join l Z) with
+            | eq_refl => _
+            end
+          | @pr_Branch _ rL rV rR =>
+            match l as l' , r as r'
+                  return record (fields_left l') ->
+                         match l' return Type@{U} with
+                         | pm_Leaf => Empty_set
+                         | pm_Branch _ _ _ => match fields_here l' return Type@{U} with
+                                             | Some t => t
+                                             | None => unit
+                                             end
+                         end ->
+                         record (fields_right l') ->
+                         record (fields_left r') ->
+                         match r' return Type@{U} with
+                         | pm_Leaf => Empty_set
+                         | pm_Branch _ _ _ => match fields_here r' return Type@{U} with
+                                             | Some t => t
+                                             | None => unit
+                                             end
+                         end ->
+                         record (fields_right r') ->
+                         record (fields_join l' r')
+            with
+            | pm_Leaf , _ => fun _ x _ _ _ _ => match x with end
+            | _ , pm_Leaf => fun _ _ _ _ x _ => match x with end
+            | pm_Branch L V R , pm_Branch L' V' R' =>
+              fun lb l rb lb' r rb' =>
+                @pr_Branch (pm_Branch _ _ _)
+                           (Rjoin _ _ lb lb') _ (Rjoin _ _ rb rb')
+            end lL lV lR rL rV rR
         end
     end.
+  { destruct l; simpl in *.
+    { destruct lV. }
+    { subst. constructor 2; simpl; try assumption. } }
+  { simpl in *. destruct V; assumption. }
+  Defined.
 
-Definition bool_to_p (x : bool) : positive -> positive :=
-  match x with
+  Definition bool_to_p (x : bool) : positive -> positive :=
+    match x with
     | true => xI
     | false => xO
-  end.
+    end.
 
-Section localized.
-  Local Notation "x >> y" := (bool_to_p x y) (at level 30, right associativity).
+  Section localized.
+    Local Notation "x >> y" := (bool_to_p x y) (at level 30, right associativity).
 
-  Definition ascii_to_p (x : ascii) (p : positive) : positive :=
-    match x with
+    Definition ascii_to_p (x : ascii) (p : positive) : positive :=
+      match x with
       | Ascii a b c d e f g h =>
         a >> b >> c >> d >> e >> f >> g >> h >> p
-    end.
-End localized.
+      end.
+  End localized.
 
-Fixpoint string_to_p (s : string) : field :=
-  match s with
+  Fixpoint string_to_p (s : string) : field :=
+    match s with
     | EmptyString => 1
     | String asc rst => ascii_to_p asc (string_to_p rst)
-  end%positive.
+    end%positive.
 
-Inductive FieldSpec : Type :=
-| FSnil : FieldSpec
-| FScons : (field * Type) -> FieldSpec -> FieldSpec.
+  Inductive FieldSpec : Type :=
+  | FSnil : FieldSpec
+  | FScons : (field * Type) -> FieldSpec -> FieldSpec.
 
-Coercion string_to_p : string >-> field.
+  Coercion string_to_p : string >-> field.
 
-Fixpoint Fields (ls : FieldSpec) : fields :=
-  match ls with
-  | FSnil => pm_Leaf
-  | FScons (f, t) ls =>
-    fields_insert f t (Fields ls)
-  end.
+  Fixpoint Fields (ls : FieldSpec) : fields :=
+    match ls with
+    | FSnil => pm_Leaf
+    | FScons (f, t) ls =>
+      fields_insert f t (Fields ls)
+    end.
 
 End poly.
