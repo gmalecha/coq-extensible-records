@@ -147,8 +147,8 @@ Section poly.
 
 
   Inductive record (f : fields) : Type@{U} :=
-  | pr_Leaf : f = pm_Leaf -> record f
-  | pr_Branch : (* forall L R (V : option Type@{U}), *)
+  | pr_Leaf' : f = pm_Leaf -> record f
+  | pr_Branch' : (* forall L R (V : option Type@{U}), *)
       record (fields_left f) ->
       match f return Type@{U} with
       | pm_Leaf => Empty_set
@@ -161,24 +161,60 @@ Section poly.
       record (fields_right f) ->
       record f.
 
-(*
-  Inductive record : fields -> Type :=
-  | pr_Leaf : record pm_Leaf
-  | pr_Branch : forall L R (V : option Type@{U}),
-      record L ->
-      match V return Type@{U} with
-        | None => unit
-        | Some t => t
-      end ->
-      record R ->
-      record (pm_Branch L V R).
-*)
+  Definition pr_Leaf : record pm_Leaf := pr_Leaf' eq_refl.
+  Definition pr_Branch {L : fields} {V : option Type@{U}} {R : fields}
+             (l : record L) (v : match V return Type@{U} with
+                                 | None => unit
+                                 | Some t => t
+                                 end)
+             (r : record R)
+   : record (pm_Branch L V R) :=
+     pr_Branch' (pm_Branch L V R) l v r.
+
+  Definition pr_BranchSome {L : fields} {V : Type@{U}} {R : fields}
+             (l : record L) (v : V)
+             (r : record R)
+   : record (pm_Branch L (@Some Type@{U} V) R) :=
+     pr_Branch' (pm_Branch L (@Some Type@{U} V) R) l v r.
+
+  Definition pr_BranchNone {L R : _}
+             (l : record L)
+             (r : record R)
+   : record (pm_Branch L (@None Type@{U}) R) :=
+     pr_Branch' (pm_Branch L (@None Type@{U}) R) l tt r.
+
+  Definition record_elim {fs : fields} (r : record fs) (T : fields -> Type)
+             (empty : T pm_Leaf)
+             (branch : forall l v r, record l -> match v return Type@{U} with
+                                           | None => unit
+                                           | Some t => t
+                                           end -> record r -> T (pm_Branch l v r))
+  : T fs :=
+    match r with
+    | pr_Leaf' pf => match pf in _ = Z return T Z -> T _ with
+                    | eq_refl => fun x => x
+                    end empty
+    | pr_Branch' _ l v r =>
+      match fs as fs
+            return record (fields_left fs) ->
+                   match fs return Type@{U} with
+                   | pm_Leaf => Empty_set
+                   | pm_Branch _ _ _ => match fields_here fs return Type@{U} with
+                                       | Some t => t
+                                       | None => unit
+                                       end
+                   end -> record (fields_right fs) -> T fs
+      with
+      | pm_Leaf => fun _ (x : Empty_set) _ => match x with end
+      | pm_Branch l v r => @branch l v r
+      end l v r
+    end.
 
   Definition record_left {L} {V : option Type@{U}} {R}
              (r : record (pm_Branch L V R)) : record L :=
     match r with
-    | pr_Branch _ l _ _ => l
-    | pr_Leaf z =>
+    | pr_Branch' _ l _ _ => l
+    | pr_Leaf' z =>
       match z in _ = Z return match Z with
                               | pm_Leaf => _
                               | pm_Branch _ _ _ => unit
@@ -194,27 +230,27 @@ Section poly.
     | Some t => t
     end :=
     match r with
-    | pr_Branch _ _ v _ => v
-    | pr_Leaf pf => match pf with
-                   | eq_refl => idProp
-                   end
+    | pr_Branch' _ _ v _ => v
+    | pr_Leaf' pf => match pf with
+                    | eq_refl => idProp
+                    end
     end.
 
   Definition record_here {L : fields} (v : Type@{U}) {R : fields}
              (r : record (pm_Branch L (@Some Type@{U} v) R)) : v :=
     match r with
-    | pr_Branch _ _ v _ => v
-    | pr_Leaf pf => match pf with
-                   | eq_refl => idProp
-                   end
+    | pr_Branch' _ _ v _ => v
+    | pr_Leaf' pf => match pf with
+                    | eq_refl => idProp
+                    end
     end.
 
   Definition record_right {L V R} (r : record (pm_Branch L V R)) : record R :=
     match r with
-    | pr_Branch _ _ _ r => r
-    | pr_Leaf pf => match pf with
-                   | eq_refl => idProp
-                   end
+    | pr_Branch' _ _ _ r => r
+    | pr_Leaf' pf => match pf with
+                    | eq_refl => idProp
+                    end
     end.
 
   Fixpoint record_get {val : Type@{U}} {pm : fields} (m : member val pm) : record pm -> val :=
@@ -224,41 +260,35 @@ Section poly.
       | pmm_R m' => fun r => record_get m' (record_right r)
     end.
 
-  Print pr_Branch.
-  Print fields.
-
   Fixpoint record_set {val : Type@{U}} {pm : fields} (m : member val pm) (x : val) {struct m}
   : record pm -> record pm :=
     match m in member _ pm return record pm -> record pm with
     | @pmm_H _ L R => fun r =>
-      pr_Branch (pm_Branch L (Some val) R)
+      @pr_BranchSome L val R
                 (record_left r)
                 x
                 (record_right r)
     | @pmm_L _ v L R m' => fun r =>
-      pr_Branch (pm_Branch L v R)
+      @pr_Branch L v R
                 (record_set m' x (record_left r))
                 (record_at r)
                 (record_right r)
     | @pmm_R _ v L R m' => fun r =>
-      pr_Branch (pm_Branch L v R)
+      @pr_Branch L v R
                 (record_left r)
                 (record_at r)
                 (record_set m' x (record_right r))
     end.
 
-  Print pr_Branch.
-
-  Definition record_empty : record pm_Leaf := pr_Leaf eq_refl.
+  Definition record_empty : record pm_Leaf := pr_Leaf.
   Fixpoint record_singleton {T : Type@{U}} (p : field) (val : T) {struct p}
   : record (fields_singleton p T) :=
     match p as p return record (fields_singleton p T) with
-    | xH => pr_Branch (pm_Branch pm_Leaf (@Some Type@{U} T) pm_Leaf)
-                     (pr_Leaf eq_refl) val (pr_Leaf eq_refl)
+    | xH => pr_BranchSome pr_Leaf val pr_Leaf
     | xI p' =>
-      pr_Branch (pm_Branch pm_Leaf None _) (pr_Leaf eq_refl) tt (record_singleton p' val)
+      pr_BranchNone pr_Leaf (record_singleton p' val)
     | xO p0 =>
-      pr_Branch (pm_Branch _ None pm_Leaf) (record_singleton p0 val) tt (pr_Leaf eq_refl)
+      pr_BranchNone (record_singleton p0 val) pr_Leaf
     end.
 
   Fixpoint disjoint (a b : fields) : bool :=
@@ -292,17 +322,17 @@ Section poly.
   : record r -> record (fields_join l r).
   refine
     match L with
-      | pr_Leaf pf => fun v =>
+      | pr_Leaf' pf => fun v =>
         match eq_sym pf in _ = Z return record (fields_join Z r) with
         | eq_refl => v
         end
-      | @pr_Branch _ lL lV lR => fun R =>
+      | @pr_Branch' _ lL lV lR => fun R =>
         match R with
-          | pr_Leaf pf =>
+          | pr_Leaf' pf =>
             match eq_sym pf in _ = Z return record (fields_join l Z) with
             | eq_refl => _
             end
-          | @pr_Branch _ rL rV rR =>
+          | @pr_Branch' _ rL rV rR =>
             match l as l' , r as r'
                   return record (fields_left l') ->
                          match l' return Type@{U} with
@@ -328,7 +358,7 @@ Section poly.
             | _ , pm_Leaf => fun _ _ _ _ x _ => match x with end
             | pm_Branch L V R , pm_Branch L' V' R' =>
               fun lb l rb lb' r rb' =>
-                @pr_Branch (pm_Branch _ _ _)
+                @pr_Branch' (pm_Branch _ _ _)
                            (Rjoin _ _ lb lb') _ (Rjoin _ _ rb rb')
             end lL lV lR rL rV rR
         end
