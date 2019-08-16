@@ -1,13 +1,13 @@
 Require Import Coq.Strings.String.
 Require Import Coq.Strings.Ascii.
-Require Import Coq.Numbers.BinNums.
+Require Import Coq.PArith.PArith.
 
 Set Implicit Arguments.
 Set Strict Implicit.
 Set Universe Polymorphism.
 Set Printing Universes.
 
-Local Open Scope positive.
+Import Coq.PArith.BinPosDef.
 
 Monomorphic Definition field : Type := positive.
 
